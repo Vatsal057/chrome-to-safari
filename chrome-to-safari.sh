@@ -8,6 +8,7 @@ set -euo pipefail
 #   ./chrome-to-safari.sh /path/to/extension              # convert + build + install + launch
 #   ./chrome-to-safari.sh <chrome-web-store-url>          # download from the store, then same
 #   ./chrome-to-safari.sh /path/to/extension --build-only # convert + build, don't install
+#   ./chrome-to-safari.sh --ui                            # open the native app UI
 #
 # Env overrides (all optional):
 #   APP_NAME    display name        (default: "name" from manifest.json)
@@ -15,7 +16,21 @@ set -euo pipefail
 #   TEAM_ID     Apple team ID       (default: auto-detected from your keychain)
 #   OUT_DIR     output directory    (default: ./<slug>-safari next to the extension)
 
-EXT_DIR="${1:?usage: chrome-to-safari.sh /path/to/extension [--build-only]}"
+# --- Native UI ----------------------------------------------------------------
+# compiled from ui.swift on the user's own machine, so Gatekeeper never sees it
+if [ "${1:-}" = "--ui" ]; then
+  SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+  UI_SRC="$SCRIPT_DIR/ui.swift"
+  UI_BIN="$SCRIPT_DIR/.ui/ChromeToSafari"
+  if [ ! -x "$UI_BIN" ] || [ "$UI_SRC" -nt "$UI_BIN" ]; then
+    echo "==> Compiling the UI (first run only)..."
+    mkdir -p "$SCRIPT_DIR/.ui"
+    swiftc -O -parse-as-library "$UI_SRC" -o "$UI_BIN"
+  fi
+  exec env C2S_SCRIPT="$SCRIPT_DIR/chrome-to-safari.sh" "$UI_BIN"
+fi
+
+EXT_DIR="${1:?usage: chrome-to-safari.sh /path/to/extension|<store-url> [--build-only], or --ui}"
 BUILD_ONLY="${2:-}"
 
 # --- Chrome Web Store URL? Download and unpack first --------------------------

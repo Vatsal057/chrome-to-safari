@@ -12,6 +12,14 @@ It also works straight from a Chrome Web Store link — the script downloads and
 ./chrome-to-safari.sh "https://chromewebstore.google.com/detail/ublock-origin-lite/ddkjiahejlhfcafbddmgiahcphecmpfh"
 ```
 
+Prefer clicking to typing? There's a native Mac app too:
+
+```bash
+./chrome-to-safari.sh --ui
+```
+
+Paste a store link or drop your unpacked extension folder onto the window, hit Convert, and watch the steps tick by. The app compiles itself from [ui.swift](ui.swift) on first run using the Xcode tools you already have — nothing is downloaded, so there are no Gatekeeper warnings.
+
 That single command converts the extension, builds the wrapper app, signs it with your free Apple Development certificate, installs it to `/Applications`, and opens Safari. Enable the extension once in **Safari → Settings → Extensions** and it stays enabled — even across Safari restarts.
 
 ## Why this exists
@@ -48,6 +56,9 @@ The script auto-detects this certificate on every run. If it's missing, the scri
 
 # Just convert and build — don't install
 ./chrome-to-safari.sh /path/to/extension --build-only
+
+# Open the native app instead of using the command line
+./chrome-to-safari.sh --ui
 ```
 
 ### Options (environment variables)
