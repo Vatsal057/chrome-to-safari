@@ -1,67 +1,54 @@
 # chrome-to-safari
 
-Turn any Chrome extension (or any WebExtension) into a working, signed Safari extension with one command — **no paid Apple Developer ID required**.
+Turn any Chrome extension (or any WebExtension) into a working, signed Safari extension — **no paid Apple Developer ID required**.
 
-```bash
-./chrome-to-safari.sh /path/to/your-extension
-```
+Safari can run Chrome extensions, but unsigned ones get **disabled every time Safari restarts**, so you're forever re-ticking "Allow unsigned extensions" in the Develop menu. This tool signs the extension with a **free** Apple ID, so once you enable it in Safari it stays enabled for good.
 
-It also works straight from a Chrome Web Store link — the script downloads and unpacks the extension for you:
+## Quick start
 
-```bash
-./chrome-to-safari.sh "https://chromewebstore.google.com/detail/ublock-origin-lite/ddkjiahejlhfcafbddmgiahcphecmpfh"
-```
-
-Prefer clicking to typing? There's a native Mac app too:
-
-```bash
-./chrome-to-safari.sh --ui
-```
-
-Paste a store link or drop your unpacked extension folder onto the window, hit Convert, and watch the steps tick by. An Options section covers the same overrides as the CLI (app name, bundle ID, team ID, output folder, build-only). The app compiles itself from [ui.swift](ui.swift) on first run using the Xcode tools you already have — nothing is downloaded, so there are no Gatekeeper warnings.
-
-That single command converts the extension, builds the wrapper app, signs it with your free Apple Development certificate, installs it to `/Applications`, and opens Safari. Enable the extension once in **Safari → Settings → Extensions** and it stays enabled — even across Safari restarts.
-
-## Why this exists
-
-Safari can run WebExtensions, but Apple makes it painful:
-
-- Safari requires extensions to be wrapped in a native macOS app built with Xcode.
-- Unsigned extensions get **disabled every time Safari restarts**, forcing you to re-enable "Allow unsigned extensions" in the Develop menu over and over.
-- Apple's converter (`safari-web-extension-converter`) generates an Xcode project but leaves signing, building, and installing to you.
-
-This script automates the whole pipeline, and uses the free Apple developer tier for signing so the "unsigned extension" problem disappears.
-
-## Requirements
-
-- macOS with **Xcode** installed (the full app, not just Command Line Tools — the converter and build need it)
-- A free Apple Development certificate (one-time setup, see below)
-
-## One-time setup: free signing certificate
+**1. Get a free signing certificate** (one time, about two minutes):
 
 1. Open **Xcode → Settings → Accounts**
 2. Click **+** and sign in with your Apple ID — no paid membership needed
 3. Select your account → **Manage Certificates…** → **+** → **Apple Development**
 
-The script auto-detects this certificate on every run. If it's missing, the script stops and prints these same instructions.
-
-## Usage
+**2. Open the app:**
 
 ```bash
-# Convert, build, sign, install to /Applications, launch Safari
-./chrome-to-safari.sh /path/to/extension
-
-# Same, but starting from a Chrome Web Store link
-./chrome-to-safari.sh "https://chromewebstore.google.com/detail/<name>/<id>"
-
-# Just convert and build — don't install
-./chrome-to-safari.sh /path/to/extension --build-only
-
-# Open the native app instead of using the command line
 ./chrome-to-safari.sh --ui
 ```
 
+A window opens. Drop your unpacked extension folder onto it (or click to pick one), **or** paste a Chrome Web Store link, then hit **Convert**. That's it — when it finishes, enable the extension once in **Safari → Settings → Extensions** and you're done.
+
+<img src="docs/app.png" alt="The chrome-to-safari app window" width="480">
+
+The app builds itself from [ui.swift](ui.swift) the first time you run `--ui`, using the Xcode tools you already have. Nothing is downloaded, so there are no Gatekeeper warnings. The **Options** section is optional — leave every field blank and it picks sensible defaults.
+
+## Command line
+
+Prefer the terminal? Point the script straight at a folder or a store link:
+
+```bash
+# A local unpacked extension folder
+./chrome-to-safari.sh /path/to/extension
+
+# A Chrome Web Store link (downloaded and unpacked for you)
+./chrome-to-safari.sh "https://chromewebstore.google.com/detail/<name>/<id>"
+
+# Convert and build, but don't install to /Applications
+./chrome-to-safari.sh /path/to/extension --build-only
+```
+
+Each run converts the extension, builds the wrapper app, signs it, installs it to `/Applications`, and opens Safari.
+
+## Requirements
+
+- macOS with **Xcode** installed (the full app, not just Command Line Tools — the converter and build need it)
+- A free Apple Development certificate (the one-time step above). The script auto-detects it on every run; if it's missing, it stops and prints these same instructions.
+
 ### Options (environment variables)
+
+These match the **Options** section in the app. All optional.
 
 | Variable    | Default                              | Purpose                          |
 |-------------|--------------------------------------|----------------------------------|
