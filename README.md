@@ -18,7 +18,7 @@ Prefer clicking to typing? There's a native Mac app too:
 ./chrome-to-safari.sh --ui
 ```
 
-Paste a store link or drop your unpacked extension folder onto the window, hit Convert, and watch the steps tick by. The app compiles itself from [ui.swift](ui.swift) on first run using the Xcode tools you already have — nothing is downloaded, so there are no Gatekeeper warnings.
+Paste a store link or drop your unpacked extension folder onto the window, hit Convert, and watch the steps tick by. An Options section covers the same overrides as the CLI (app name, bundle ID, team ID, output folder, build-only). The app compiles itself from [ui.swift](ui.swift) on first run using the Xcode tools you already have — nothing is downloaded, so there are no Gatekeeper warnings.
 
 That single command converts the extension, builds the wrapper app, signs it with your free Apple Development certificate, installs it to `/Applications`, and opens Safari. Enable the extension once in **Safari → Settings → Extensions** and it stays enabled — even across Safari restarts.
 
@@ -85,6 +85,7 @@ APP_NAME="My Cool Extension" BUNDLE_ID=com.me.coolext ./chrome-to-safari.sh ./my
 5. **Builds** with `xcodebuild`, injecting your team ID so both targets are signed with your free Apple Development certificate.
 6. **Verifies** the code signature.
 7. **Installs** the app to `/Applications`, registers it with Launch Services, and launches it plus Safari.
+8. **Cleans up after itself**: once the app is in `/Applications`, the generated Xcode project and build tree are deleted so you don't end up with duplicate copies of the extension. Pass `--build-only` if you want to keep them.
 
 Re-running the script is safe: it re-converts and rebuilds from scratch each time, so just run it again after changing your extension's source.
 

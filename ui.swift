@@ -92,50 +92,68 @@ struct ContentView: View {
     @State private var buildOnly = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Chrome → Safari")
-                .font(.system(size: 22, weight: .bold))
-            Text("Paste a Chrome Web Store link, or drop an unpacked extension folder anywhere in this window.")
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+        VStack(alignment: .leading, spacing: 20) {
+            dropZone
 
-            HStack(spacing: 8) {
-                TextField("https://chromewebstore.google.com/detail/…  or  /path/to/extension", text: $input)
-                    .textFieldStyle(.roundedBorder)
-                    .disabled(runner.running)
-                    .onSubmit(convert)
-                Button("Choose Folder…", action: chooseFolder)
-                    .disabled(runner.running)
-            }
+            VStack(spacing: 12) {
+                HStack(spacing: 8) {
+                    Image(systemName: "link")
+                        .foregroundStyle(.secondary)
+                    TextField("Store link or folder path", text: $input)
+                        .textFieldStyle(.roundedBorder)
+                        .disabled(runner.running)
+                        .onSubmit(convert)
+                }
 
-            Button(action: convert) {
-                Text(runner.running ? "Converting…" : "Convert")
+                Button(action: convert) {
+                    HStack(spacing: 8) {
+                        if runner.running {
+                            ProgressView()
+                                .controlSize(.small)
+                        }
+                        Text(runner.running ? "Converting…" : "Convert")
+                            .fontWeight(.medium)
+                    }
                     .frame(maxWidth: .infinity)
+                }
+                .controlSize(.large)
+                .buttonStyle(.borderedProminent)
+                .keyboardShortcut(.defaultAction)
+                .disabled(runner.running || input.trimmingCharacters(in: .whitespaces).isEmpty)
             }
-            .controlSize(.large)
-            .buttonStyle(.borderedProminent)
-            .disabled(runner.running || input.trimmingCharacters(in: .whitespaces).isEmpty)
 
             DisclosureGroup("Options", isExpanded: $showOptions) {
-                VStack(alignment: .leading, spacing: 8) {
-                    optionField("App name", "from the extension's manifest", $appName)
-                    optionField("Bundle ID", "com.converted.<name>", $bundleID)
-                    optionField("Team ID", "auto-detected from your keychain", $teamID)
-                    HStack(spacing: 8) {
-                        optionField("Output folder", "next to the extension", $outDir)
-                        Button("…", action: chooseOutDir)
+                Text("Leave any field blank to use its default.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 10)
+
+                Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 8, verticalSpacing: 8) {
+                    optionRow("App Name", "from the extension's manifest", $appName)
+                    optionRow("Bundle ID", "com.converted.<name>", $bundleID)
+                    optionRow("Team ID", "auto-detected from your keychain", $teamID)
+                    GridRow {
+                        Text("Output Folder")
+                            .gridColumnAlignment(.trailing)
+                            .foregroundStyle(.secondary)
+                        HStack(spacing: 6) {
+                            TextField("next to the extension", text: $outDir)
+                                .textFieldStyle(.roundedBorder)
+                            Button("…", action: chooseOutDir)
+                        }
                     }
-                    Toggle("Build only — don't install to /Applications", isOn: $buildOnly)
-                        .font(.system(size: 12))
+                    GridRow {
+                        Color.clear.gridCellUnsizedAxes([.horizontal, .vertical])
+                        Toggle("Build only, don't install to /Applications", isOn: $buildOnly)
+                    }
                 }
-                .padding(.top, 6)
+                .font(.callout)
                 .disabled(runner.running)
             }
-            .font(.system(size: 12))
+            .font(.callout)
 
             if !runner.steps.isEmpty {
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 10) {
                     ForEach(runner.steps) { step in
                         HStack(spacing: 8) {
                             if step.done {
@@ -145,57 +163,51 @@ struct ContentView: View {
                                 Image(systemName: "xmark.circle.fill")
                                     .foregroundStyle(.red)
                             } else {
-                                ProgressView().controlSize(.small)
+                                ProgressView()
+                                    .controlSize(.small)
                             }
-                            Text(step.label).font(.system(size: 12))
+                            Text(step.label)
+                                .font(.callout)
+                                .foregroundStyle(step.done ? .secondary : .primary)
                         }
+                        .transition(.opacity)
                     }
                 }
-                .padding(12)
+                .padding(14)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
+                .background(.quinary, in: RoundedRectangle(cornerRadius: 8))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .strokeBorder(Color(nsColor: .separatorColor))
+                )
             }
 
             if runner.finished {
-                if runner.succeeded {
-                    Label(buildOnly ? "Done. The built app is in the output folder — see the log for the path."
-                                    : "Done. Enable it in Safari → Settings → Extensions.",
-                          systemImage: "checkmark.seal.fill")
-                        .foregroundStyle(.green)
-                        .font(.system(size: 12, weight: .medium))
-                } else {
-                    Label("Failed — see the log below.", systemImage: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.red)
-                        .font(.system(size: 12, weight: .medium))
-                        .onAppear { showLog = true }
-                }
+                resultBanner
             }
 
             DisclosureGroup("Log", isExpanded: $showLog) {
                 ScrollViewReader { proxy in
                     ScrollView {
                         Text(runner.log.isEmpty ? "No output yet." : runner.log)
-                            .font(.system(size: 10, design: .monospaced))
+                            .font(.caption.monospaced())
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .textSelection(.enabled)
+                            .padding(8)
                         Color.clear.frame(height: 1).id("end")
                     }
-                    .frame(height: 160)
+                    .frame(height: 170)
+                    .background(.quinary, in: RoundedRectangle(cornerRadius: 8))
                     .onChange(of: runner.log) { _ in proxy.scrollTo("end") }
+                    .padding(.top, 8)
                 }
             }
-            .font(.system(size: 12))
-
-            Spacer(minLength: 0)
+            .font(.callout)
         }
         .padding(20)
         .frame(width: 480)
-        .frame(minHeight: 340)
-        .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .strokeBorder(dropTargeted ? Color.accentColor : .clear, lineWidth: 3)
-                .padding(4)
-        )
+        .animation(.easeOut(duration: 0.2), value: runner.steps.count)
+        .animation(.easeOut(duration: 0.2), value: runner.finished)
         .onDrop(of: [.fileURL], isTargeted: $dropTargeted) { providers in
             guard let provider = providers.first else { return false }
             _ = provider.loadObject(ofClass: URL.self) { url, _ in
@@ -209,6 +221,51 @@ struct ContentView: View {
         }
     }
 
+    private var dropZone: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "puzzlepiece.extension")
+                .font(.system(size: 30, weight: .light))
+                .foregroundStyle(dropTargeted ? Color.accentColor : Color.secondary)
+            Text("Drop an unpacked extension folder here, or click to choose one")
+                .font(.callout.weight(.medium))
+            Text("or paste a Chrome Web Store link below")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 26)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(dropTargeted ? Color.accentColor.opacity(0.08) : Color.clear)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .strokeBorder(dropTargeted ? Color.accentColor : Color(nsColor: .separatorColor),
+                              style: StrokeStyle(lineWidth: dropTargeted ? 2 : 1, dash: [5, 4]))
+        )
+        .contentShape(Rectangle())
+        .onTapGesture { if !runner.running { chooseFolder() } }
+        .animation(.easeOut(duration: 0.15), value: dropTargeted)
+    }
+
+    private var resultBanner: some View {
+        let ok = runner.succeeded
+        return HStack(spacing: 10) {
+            Image(systemName: ok ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
+                .foregroundStyle(ok ? Color.green : Color.red)
+            Text(ok ? (buildOnly ? "Done. The built app is in the output folder — see the log for the path."
+                                 : "Done. Enable it in Safari → Settings → Extensions.")
+                    : "Failed. See the log below for details.")
+                .font(.callout.weight(.medium))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background((ok ? Color.green : Color.red).opacity(0.08),
+                    in: RoundedRectangle(cornerRadius: 8))
+        .onAppear { if !ok { showLog = true } }
+    }
+
     private func convert() {
         let value = input.trimmingCharacters(in: .whitespaces)
         guard !value.isEmpty, !runner.running else { return }
@@ -218,14 +275,13 @@ struct ContentView: View {
                    buildOnly: buildOnly)
     }
 
-    private func optionField(_ label: String, _ defaultHint: String, _ text: Binding<String>) -> some View {
-        HStack(spacing: 8) {
+    private func optionRow(_ label: String, _ defaultHint: String, _ text: Binding<String>) -> some View {
+        GridRow {
             Text(label)
-                .font(.system(size: 12))
-                .frame(width: 90, alignment: .trailing)
-            TextField("default: \(defaultHint)", text: text)
+                .gridColumnAlignment(.trailing)
+                .foregroundStyle(.secondary)
+            TextField(defaultHint, text: text)
                 .textFieldStyle(.roundedBorder)
-                .font(.system(size: 12))
         }
     }
 
@@ -254,7 +310,7 @@ struct ContentView: View {
 @main
 struct ChromeToSafariApp: App {
     var body: some Scene {
-        WindowGroup {
+        WindowGroup("Chrome to Safari") {
             ContentView()
         }
         .windowResizability(.contentSize)

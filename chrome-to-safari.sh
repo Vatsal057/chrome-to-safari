@@ -161,7 +161,7 @@ fi
 # --- Install + launch -----------------------------------------------------------
 echo "==> Installing to /Applications..."
 rm -rf "/Applications/$APP_NAME.app"
-cp -R "$APP" /Applications/
+mv "$APP" /Applications/
 
 /System/Library/Frameworks/CoreServices.framework/Versions/Current/Frameworks/LaunchServices.framework/Versions/Current/Support/lsregister \
   -f -R -trusted "/Applications/$APP_NAME.app"
