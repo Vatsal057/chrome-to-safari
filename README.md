@@ -6,9 +6,9 @@ Safari can run Chrome extensions, but unsigned ones get **disabled every time Sa
 
 ## Demo
 
-<video src="ExtensionDemo.mp4" controls muted playsinline width="640">
+<video src="docs/ExtensionDemo.mp4" controls muted playsinline width="640">
   Your browser can't play this video inline —
-  <a href="ExtensionDemo.mp4">download the demo</a> instead.
+  <a href="docs/ExtensionDemo.mp4">download the demo</a> instead.
 </video>
 
 ## Quick start
