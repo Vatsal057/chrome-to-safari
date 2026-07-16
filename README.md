@@ -92,6 +92,11 @@ Re-running the script is safe: it re-converts and rebuilds from scratch each tim
 - **Extension doesn't appear in Safari** — quit and reopen Safari, then check Safari → Settings → Extensions. Make sure the wrapper app ran at least once.
 - **Multiple certificates / wrong team** — pass `TEAM_ID=XXXXXXXXXX` explicitly. Find yours with `security find-identity -v -p codesigning`.
 
+## Privacy & Terms
+
+- [Privacy Policy](PRIVACY.md) — nothing collected, nothing transmitted
+- [Terms of Use](TERMS.md) — MIT, as-is, no warranty
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
