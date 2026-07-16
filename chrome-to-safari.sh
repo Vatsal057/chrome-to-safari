@@ -170,5 +170,12 @@ open -a "/Applications/$APP_NAME.app"
 sleep 2
 open -a Safari
 
+# The generated project and build tree hold extra copies of the extension.
+# Once the app is in /Applications they're dead weight; a re-run regenerates
+# everything from scratch anyway. Use --build-only if you want to keep them.
+# Only remove the two directories this script created, never OUT_DIR wholesale.
+rm -rf "$OUT_DIR/$APP_NAME" "$OUT_DIR/build"
+rmdir "$OUT_DIR" 2>/dev/null || true
+
 echo ""
 echo "Done. Enable it in Safari > Settings > Extensions."

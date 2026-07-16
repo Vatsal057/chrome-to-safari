@@ -24,7 +24,7 @@ final class Runner: ObservableObject {
 
     private var process: Process?
 
-    func run(input: String) {
+    func run(input: String, env: [String: String] = [:], buildOnly: Bool = false) {
         steps = []
         log = ""
         finished = false
@@ -33,7 +33,13 @@ final class Runner: ObservableObject {
 
         let proc = Process()
         proc.executableURL = URL(fileURLWithPath: "/bin/bash")
-        proc.arguments = [Self.scriptPath, input]
+        proc.arguments = buildOnly ? [Self.scriptPath, input, "--build-only"]
+                                   : [Self.scriptPath, input]
+        var environment = ProcessInfo.processInfo.environment
+        for (key, value) in env where !value.trimmingCharacters(in: .whitespaces).isEmpty {
+            environment[key] = value
+        }
+        proc.environment = environment
         let pipe = Pipe()
         proc.standardOutput = pipe
         proc.standardError = pipe
@@ -78,6 +84,12 @@ struct ContentView: View {
     @State private var input = ""
     @State private var dropTargeted = false
     @State private var showLog = false
+    @State private var showOptions = false
+    @State private var appName = ""
+    @State private var bundleID = ""
+    @State private var teamID = ""
+    @State private var outDir = ""
+    @State private var buildOnly = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -105,6 +117,23 @@ struct ContentView: View {
             .buttonStyle(.borderedProminent)
             .disabled(runner.running || input.trimmingCharacters(in: .whitespaces).isEmpty)
 
+            DisclosureGroup("Options", isExpanded: $showOptions) {
+                VStack(alignment: .leading, spacing: 8) {
+                    optionField("App name", "from the extension's manifest", $appName)
+                    optionField("Bundle ID", "com.converted.<name>", $bundleID)
+                    optionField("Team ID", "auto-detected from your keychain", $teamID)
+                    HStack(spacing: 8) {
+                        optionField("Output folder", "next to the extension", $outDir)
+                        Button("…", action: chooseOutDir)
+                    }
+                    Toggle("Build only — don't install to /Applications", isOn: $buildOnly)
+                        .font(.system(size: 12))
+                }
+                .padding(.top, 6)
+                .disabled(runner.running)
+            }
+            .font(.system(size: 12))
+
             if !runner.steps.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
                     ForEach(runner.steps) { step in
@@ -129,7 +158,9 @@ struct ContentView: View {
 
             if runner.finished {
                 if runner.succeeded {
-                    Label("Done. Enable it in Safari → Settings → Extensions.", systemImage: "checkmark.seal.fill")
+                    Label(buildOnly ? "Done. The built app is in the output folder — see the log for the path."
+                                    : "Done. Enable it in Safari → Settings → Extensions.",
+                          systemImage: "checkmark.seal.fill")
                         .foregroundStyle(.green)
                         .font(.system(size: 12, weight: .medium))
                 } else {
@@ -181,7 +212,32 @@ struct ContentView: View {
     private func convert() {
         let value = input.trimmingCharacters(in: .whitespaces)
         guard !value.isEmpty, !runner.running else { return }
-        runner.run(input: value)
+        runner.run(input: value,
+                   env: ["APP_NAME": appName, "BUNDLE_ID": bundleID,
+                         "TEAM_ID": teamID, "OUT_DIR": outDir],
+                   buildOnly: buildOnly)
+    }
+
+    private func optionField(_ label: String, _ defaultHint: String, _ text: Binding<String>) -> some View {
+        HStack(spacing: 8) {
+            Text(label)
+                .font(.system(size: 12))
+                .frame(width: 90, alignment: .trailing)
+            TextField("default: \(defaultHint)", text: text)
+                .textFieldStyle(.roundedBorder)
+                .font(.system(size: 12))
+        }
+    }
+
+    private func chooseOutDir() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.message = "Pick where the build output should go"
+        if panel.runModal() == .OK, let url = panel.url {
+            outDir = url.path
+        }
     }
 
     private func chooseFolder() {
