@@ -4,6 +4,13 @@ Turn any Chrome extension (or any WebExtension) into a working, signed Safari ex
 
 Safari can run Chrome extensions, but unsigned ones get **disabled every time Safari restarts**, so you're forever re-ticking "Allow unsigned extensions" in the Develop menu. This tool signs the extension with a **free** Apple ID, so once you enable it in Safari it stays enabled for good.
 
+## Demo
+
+<video src="ExtensionDemo.mp4" controls muted playsinline width="640">
+  Your browser can't play this video inline —
+  <a href="ExtensionDemo.mp4">download the demo</a> instead.
+</video>
+
 ## Quick start
 
 **1. Get a free signing certificate** (one time, about two minutes):
