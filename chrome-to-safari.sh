@@ -6,6 +6,7 @@ set -euo pipefail
 #
 # Usage:
 #   ./chrome-to-safari.sh /path/to/extension              # convert + build + install + launch
+#   ./chrome-to-safari.sh <chrome-web-store-url>          # download from the store, then same
 #   ./chrome-to-safari.sh /path/to/extension --build-only # convert + build, don't install
 #
 # Env overrides (all optional):
@@ -16,6 +17,33 @@ set -euo pipefail
 
 EXT_DIR="${1:?usage: chrome-to-safari.sh /path/to/extension [--build-only]}"
 BUILD_ONLY="${2:-}"
+
+# --- Chrome Web Store URL? Download and unpack first --------------------------
+if [[ "$EXT_DIR" == http*://* ]]; then
+  # store URLs: .../detail/<slug>/<32-char-id>; IDs use letters a-p only
+  EXT_ID="$(printf '%s' "$EXT_DIR" | grep -oE '[a-p]{32}' | head -1)"
+  if [ -z "$EXT_ID" ]; then
+    echo "ERROR: no extension ID in that URL. Expected a Chrome Web Store link like" >&2
+    echo "  https://chromewebstore.google.com/detail/<name>/<32-char-id>" >&2
+    exit 1
+  fi
+  # use the URL's name slug as the folder name so APP_NAME falls back to it
+  URL_SLUG="$(printf '%s' "$EXT_DIR" | sed -n 's|.*/detail/\([^/]*\)/.*|\1|p')"
+  DL_DIR="$(mktemp -d)/${URL_SLUG:-$EXT_ID}"
+  mkdir -p "$DL_DIR"
+  echo "==> Downloading $EXT_ID from Chrome Web Store..."
+  curl -fsSL -o "$DL_DIR.crx" \
+    "https://clients2.google.com/service/update2/crx?response=redirect&prodversion=131.0&acceptformat=crx2,crx3&x=id%3D${EXT_ID}%26uc"
+  # a .crx is a zip with a binary header; unzip skips the junk but exits nonzero
+  unzip -qo "$DL_DIR.crx" -d "$DL_DIR" 2>/dev/null || true
+  if [ ! -f "$DL_DIR/manifest.json" ]; then
+    echo "ERROR: download failed — no manifest.json in the downloaded package" >&2
+    exit 1
+  fi
+  rm -rf "$DL_DIR/_metadata"   # store signing artifacts; the converter chokes on them
+  EXT_DIR="$DL_DIR"
+  OUT_BASE="$PWD"              # don't leave build output in the temp dir
+fi
 
 EXT_DIR="$(cd "$EXT_DIR" && pwd)"
 MANIFEST="$EXT_DIR/manifest.json"
@@ -34,7 +62,7 @@ fi
 
 SLUG="$(printf '%s' "$APP_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]\{1,\}/-/g; s/^-//; s/-$//')"
 BUNDLE_ID="${BUNDLE_ID:-com.converted.$SLUG}"
-OUT_DIR="${OUT_DIR:-$(dirname "$EXT_DIR")/$SLUG-safari}"
+OUT_DIR="${OUT_DIR:-${OUT_BASE:-$(dirname "$EXT_DIR")}/$SLUG-safari}"
 
 echo "==> App name:  $APP_NAME"
 echo "==> Bundle ID: $BUNDLE_ID"
