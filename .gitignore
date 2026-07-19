@@ -1,3 +1,8 @@
 .DS_Store
 *-safari/
 .ui/
+build/
+dist/
+__pycache__/
+*.pyc
+docs/superpowers
