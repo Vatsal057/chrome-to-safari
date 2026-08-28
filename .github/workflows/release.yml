@@ -1,0 +1,91 @@
+name: Release
+
+# Tag-triggered only: nothing publishes until someone pushes a v* tag.
+#   git tag v1.0.0 && git push origin v1.0.0
+#
+# The README advertises a PortKit.dmg download, which until now was hand-built
+# on one machine. scripts/build-app.sh already produces it; this just runs it
+# somewhere reproducible.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run the shell test suite
+        run: |
+          # The engine is the product; the app is a wrapper around it. If the
+          # manifest rewriting is broken there is no point shipping a DMG.
+          if [ -d test ]; then
+            python3 -m pytest test -q || python3 test/test_manifest_fix.py
+          fi
+
+      - name: Set version from tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          # build-app.sh carries the version inline; keep the bundle honest.
+          sed -i '' "s/^VERSION=\".*\"/VERSION=\"$VERSION\"/" scripts/build-app.sh
+          grep '^VERSION=' scripts/build-app.sh
+
+      - name: Build PortKit.app + DMG
+        run: bash scripts/build-app.sh
+
+      - name: Rename and checksum
+        run: |
+          mkdir -p dist
+          mv build/PortKit.dmg "dist/PortKit-${GITHUB_REF_NAME}.dmg"
+          cd dist
+          shasum -a 256 *.dmg > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Verify the DMG mounts and the app is signed
+        run: |
+          hdiutil attach "dist/PortKit-${GITHUB_REF_NAME}.dmg" \
+            -nobrowse -readonly -mountpoint /tmp/portkit-verify
+          codesign --verify --strict /tmp/portkit-verify/PortKit.app
+          # The app is only useful if the engine actually got bundled with it.
+          test -f /tmp/portkit-verify/PortKit.app/Contents/Resources/chrome-to-safari.sh
+          test -d /tmp/portkit-verify/PortKit.app/Contents/Resources/lib
+          hdiutil detach /tmp/portkit-verify
+
+      - uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          files: |
+            dist/*.dmg
+            dist/SHA256SUMS.txt
+          name: PortKit ${{ github.ref_name }}
+          generate_release_notes: true
+          body: |
+            ## Install
+
+            1. Download the `.dmg` below, open it, drag **PortKit** into
+               **Applications**.
+            2. Ad-hoc signed rather than notarized, so the first launch needs
+               **right-click → Open**. Once only.
+
+            ## Requires full Xcode
+
+            Converting an extension runs `xcodebuild` and `codesign`, so the
+            Command Line Tools alone are not enough — you need Xcode installed
+            and a free Apple ID signed into it. That is the whole point: signing
+            with a free Apple Development certificate is what stops Safari
+            disabling the extension on every restart.
+
+            ## CLI
+
+            The app is a wrapper; the engine works standalone:
+
+            ```
+            ./chrome-to-safari.sh <folder|.crx|.zip|store-url>
+            ```

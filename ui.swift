@@ -1,25 +1,10 @@
-// ui.swift — PortKit, the native macOS front-end for chrome-to-safari.sh.
-// In dev: compiled on first run by `./chrome-to-safari.sh --ui` (swiftc).
-// In the shipped app: bundled beside the script in Contents/Resources.
-// The shell script stays the single source of truth; this window runs it
+// ui.swift — native macOS front-end for chrome-to-safari.sh
+// Compiled on first run by `./chrome-to-safari.sh --ui` (swiftc, no Xcode project).
+// The shell script stays the single source of truth; this window just runs it
 // and shows its output.
 
 import SwiftUI
 import UniformTypeIdentifiers
-
-enum Mode: String, CaseIterable, Identifiable {
-    case install = "Install"
-    case buildOnly = "Build only"
-    case tempLoad = "Temp-load"
-    var id: String { rawValue }
-    var flags: [String] {
-        switch self {
-        case .install: return []
-        case .buildOnly: return ["--build-only"]
-        case .tempLoad: return ["--temp-load"]
-        }
-    }
-}
 
 struct Step: Identifiable {
     let id = UUID()
@@ -28,15 +13,8 @@ struct Step: Identifiable {
 }
 
 final class Runner: ObservableObject {
-    // Prefer the dev env var, then the copy bundled inside the .app, then cwd.
-    static let scriptPath: String = {
-        if let env = ProcessInfo.processInfo.environment["C2S_SCRIPT"] { return env }
-        if let res = Bundle.main.resourcePath {
-            let bundled = res + "/chrome-to-safari.sh"
-            if FileManager.default.fileExists(atPath: bundled) { return bundled }
-        }
-        return FileManager.default.currentDirectoryPath + "/chrome-to-safari.sh"
-    }()
+    static let scriptPath = ProcessInfo.processInfo.environment["C2S_SCRIPT"]
+        ?? FileManager.default.currentDirectoryPath + "/chrome-to-safari.sh"
 
     @Published var steps: [Step] = []
     @Published var log = ""
@@ -46,7 +24,7 @@ final class Runner: ObservableObject {
 
     private var process: Process?
 
-    func run(input: String, env: [String: String] = [:], extraArgs: [String] = []) {
+    func run(input: String, env: [String: String] = [:], buildOnly: Bool = false) {
         steps = []
         log = ""
         finished = false
@@ -55,7 +33,8 @@ final class Runner: ObservableObject {
 
         let proc = Process()
         proc.executableURL = URL(fileURLWithPath: "/bin/bash")
-        proc.arguments = [Self.scriptPath, input] + extraArgs
+        proc.arguments = buildOnly ? [Self.scriptPath, input, "--build-only"]
+                                   : [Self.scriptPath, input]
         var environment = ProcessInfo.processInfo.environment
         for (key, value) in env where !value.trimmingCharacters(in: .whitespaces).isEmpty {
             environment[key] = value
@@ -110,8 +89,7 @@ struct ContentView: View {
     @State private var bundleID = ""
     @State private var teamID = ""
     @State private var outDir = ""
-    @State private var mode: Mode = .install
-    @State private var didAnalyze = false
+    @State private var buildOnly = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -121,43 +99,27 @@ struct ContentView: View {
                 HStack(spacing: 8) {
                     Image(systemName: "link")
                         .foregroundStyle(.secondary)
-                    TextField("Store link, or path to a folder / .crx / .zip", text: $input)
+                    TextField("Store link or folder path", text: $input)
                         .textFieldStyle(.roundedBorder)
                         .disabled(runner.running)
                         .onSubmit(convert)
                 }
 
-                Picker("", selection: $mode) {
-                    ForEach(Mode.allCases) { Text($0.rawValue).tag($0) }
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .disabled(runner.running)
-
-                HStack(spacing: 8) {
-                    Button(action: analyze) {
-                        Text("Analyze")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .controlSize(.large)
-                    .disabled(runner.running || input.trimmingCharacters(in: .whitespaces).isEmpty)
-
-                    Button(action: convert) {
-                        HStack(spacing: 8) {
-                            if runner.running {
-                                ProgressView()
-                                    .controlSize(.small)
-                            }
-                            Text(runner.running ? "Working…" : convertLabel)
-                                .fontWeight(.medium)
+                Button(action: convert) {
+                    HStack(spacing: 8) {
+                        if runner.running {
+                            ProgressView()
+                                .controlSize(.small)
                         }
-                        .frame(maxWidth: .infinity)
+                        Text(runner.running ? "Converting…" : "Convert")
+                            .fontWeight(.medium)
                     }
-                    .controlSize(.large)
-                    .buttonStyle(.borderedProminent)
-                    .keyboardShortcut(.defaultAction)
-                    .disabled(runner.running || input.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .frame(maxWidth: .infinity)
                 }
+                .controlSize(.large)
+                .buttonStyle(.borderedProminent)
+                .keyboardShortcut(.defaultAction)
+                .disabled(runner.running || input.trimmingCharacters(in: .whitespaces).isEmpty)
             }
 
             DisclosureGroup("Options", isExpanded: $showOptions) {
@@ -179,6 +141,10 @@ struct ContentView: View {
                                 .textFieldStyle(.roundedBorder)
                             Button("…", action: chooseOutDir)
                         }
+                    }
+                    GridRow {
+                        Color.clear.gridCellUnsizedAxes([.horizontal, .vertical])
+                        Toggle("Build only, don't install to /Applications", isOn: $buildOnly)
                     }
                 }
                 .font(.callout)
@@ -255,22 +221,13 @@ struct ContentView: View {
         }
     }
 
-    private var convertLabel: String {
-        switch mode {
-        case .install: return "Convert"
-        case .buildOnly: return "Build"
-        case .tempLoad: return "Stage"
-        }
-    }
-
     private var dropZone: some View {
         VStack(spacing: 8) {
             Image(systemName: "puzzlepiece.extension")
                 .font(.system(size: 30, weight: .light))
                 .foregroundStyle(dropTargeted ? Color.accentColor : Color.secondary)
-            Text("Drop an extension folder or a .crx / .zip file here, or click to choose")
+            Text("Drop an unpacked extension folder here, or click to choose one")
                 .font(.callout.weight(.medium))
-                .multilineTextAlignment(.center)
             Text("or paste a Chrome Web Store link below")
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -287,7 +244,7 @@ struct ContentView: View {
                               style: StrokeStyle(lineWidth: dropTargeted ? 2 : 1, dash: [5, 4]))
         )
         .contentShape(Rectangle())
-        .onTapGesture { if !runner.running { chooseInput() } }
+        .onTapGesture { if !runner.running { chooseFolder() } }
         .animation(.easeOut(duration: 0.15), value: dropTargeted)
     }
 
@@ -296,7 +253,9 @@ struct ContentView: View {
         return HStack(spacing: 10) {
             Image(systemName: ok ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
                 .foregroundStyle(ok ? Color.green : Color.red)
-            Text(bannerText(ok))
+            Text(ok ? (buildOnly ? "Done. The built app is in the output folder — see the log for the path."
+                                 : "Done. Enable it in Safari → Settings → Extensions.")
+                    : "Failed. See the log below for details.")
                 .font(.callout.weight(.medium))
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -304,35 +263,16 @@ struct ContentView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background((ok ? Color.green : Color.red).opacity(0.08),
                     in: RoundedRectangle(cornerRadius: 8))
-        .onAppear { if !ok || didAnalyze || mode == .tempLoad { showLog = true } }
-    }
-
-    private func bannerText(_ ok: Bool) -> String {
-        if !ok { return "Failed. See the log below for details." }
-        if didAnalyze { return "Analysis complete — see the report in the log." }
-        switch mode {
-        case .install: return "Done. Enable it in Safari → Settings → Extensions."
-        case .buildOnly: return "Done. The built app is in the output folder — see the log for the path."
-        case .tempLoad: return "Staged. In Safari: Develop → Add Temporary Extension (folder path in the log)."
-        }
+        .onAppear { if !ok { showLog = true } }
     }
 
     private func convert() {
         let value = input.trimmingCharacters(in: .whitespaces)
         guard !value.isEmpty, !runner.running else { return }
-        didAnalyze = false
-        runner.run(input: value, env: optionEnv, extraArgs: mode.flags)
-    }
-
-    private func analyze() {
-        let value = input.trimmingCharacters(in: .whitespaces)
-        guard !value.isEmpty, !runner.running else { return }
-        didAnalyze = true
-        runner.run(input: value, env: optionEnv, extraArgs: ["--analyze"])
-    }
-
-    private var optionEnv: [String: String] {
-        ["APP_NAME": appName, "BUNDLE_ID": bundleID, "TEAM_ID": teamID, "OUT_DIR": outDir]
+        runner.run(input: value,
+                   env: ["APP_NAME": appName, "BUNDLE_ID": bundleID,
+                         "TEAM_ID": teamID, "OUT_DIR": outDir],
+                   buildOnly: buildOnly)
     }
 
     private func optionRow(_ label: String, _ defaultHint: String, _ text: Binding<String>) -> some View {
@@ -356,11 +296,11 @@ struct ContentView: View {
         }
     }
 
-    private func chooseInput() {
+    private func chooseFolder() {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
-        panel.canChooseFiles = true
-        panel.message = "Pick the unpacked extension folder, or a .crx / .zip / .xpi file"
+        panel.canChooseFiles = false
+        panel.message = "Pick the unpacked extension folder (the one containing manifest.json)"
         if panel.runModal() == .OK, let url = panel.url {
             input = url.path
         }
@@ -368,9 +308,9 @@ struct ContentView: View {
 }
 
 @main
-struct PortKitApp: App {
+struct ChromeToSafariApp: App {
     var body: some Scene {
-        WindowGroup("PortKit") {
+        WindowGroup("Chrome to Safari") {
             ContentView()
         }
         .windowResizability(.contentSize)
