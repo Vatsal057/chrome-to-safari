@@ -1,0 +1,25 @@
+{
+  "default-configuration": "Release",
+  "configurations": [
+    "Debug",
+    "Release",
+  ],
+  "targets": [
+    {
+      "name": "Test Extension",
+      "product-type": "application",
+      "build-settings": {
+        "PRODUCT_BUNDLE_IDENTIFIER": "com.generated.Test-Extension",
+        "PRODUCT_NAME": "$(TARGET_NAME)",
+      },
+    },
+    {
+      "name": "Test Extension Extension",
+      "product-type": "app-extension",
+      "build-settings": {
+        "PRODUCT_BUNDLE_IDENTIFIER": "com.requested.extension.Extension",
+        "PRODUCT_NAME": "$(TARGET_NAME)",
+      },
+    },
+  ],
+}

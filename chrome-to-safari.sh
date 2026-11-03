@@ -126,9 +126,36 @@ fi
 # not prefixed with the parent app's bundle identifier". Normalize: make the
 # extension's ID always be <app ID>.Extension.
 PBX="$PROJECT/project.pbxproj"
-APP_ID="$(grep -o 'PRODUCT_BUNDLE_IDENTIFIER = "\{0,1\}[^";]*' "$PBX" \
-  | sed 's/.*= "\{0,1\}//' | grep -v '\.Extension$' | head -1)"
-sed -i '' "s/PRODUCT_BUNDLE_IDENTIFIER = \"\{0,1\}[^\";]*\.Extension\"\{0,1\};/PRODUCT_BUNDLE_IDENTIFIER = \"$APP_ID.Extension\";/g" "$PBX"
+if [ -f "$PBX" ]; then
+  APP_ID="$(grep -o 'PRODUCT_BUNDLE_IDENTIFIER = "\{0,1\}[^";]*' "$PBX" \
+    | sed 's/.*= "\{0,1\}//' | grep -v '\.Extension$' | head -1)"
+  sed -i '' "s/PRODUCT_BUNDLE_IDENTIFIER = \"\{0,1\}[^\";]*\.Extension\"\{0,1\};/PRODUCT_BUNDLE_IDENTIFIER = \"$APP_ID.Extension\";/g" "$PBX"
+elif [ -f "$PROJECT/project.xcproj" ]; then
+  # Xcode 27 can generate project.xcproj instead. Its JSON-style format allows
+  # trailing commas; edit only the bundle ID settings and preserve the rest.
+  python3 - "$PROJECT/project.xcproj" <<'PY'
+import pathlib
+import re
+import sys
+
+path = pathlib.Path(sys.argv[1])
+text = path.read_text(encoding="utf-8")
+pattern = re.compile(r'^(\s*"PRODUCT_BUNDLE_IDENTIFIER"\s*:\s*")([^"\n]+)(")', re.MULTILINE)
+ids = [match[2] for match in pattern.finditer(text)]
+app_id = next((value for value in ids if not value.endswith(".Extension")), None)
+if app_id is None or not any(value.endswith(".Extension") for value in ids):
+    sys.exit(f"ERROR: cannot find app and extension bundle identifiers in {path}")
+text = pattern.sub(
+    lambda match: match[1] + app_id + ".Extension" + match[3]
+    if match[2].endswith(".Extension") else match[0],
+    text,
+)
+path.write_text(text, encoding="utf-8")
+PY
+else
+  echo "ERROR: no project.pbxproj or project.xcproj found in $PROJECT" >&2
+  exit 1
+fi
 
 # --- Build --------------------------------------------------------------------
 echo "==> Building..."
