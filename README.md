@@ -128,6 +128,7 @@ The build compiles `ui.swift`, generates the icon (`scripts/make_icon.swift`), b
 
 ```bash
 python3 test/test_manifest_fix.py
+python3 test/test_project_formats.py # macOS: CLI coverage for both Xcode project formats
 ```
 
 ## Limitations

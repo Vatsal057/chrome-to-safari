@@ -1,0 +1,34 @@
+// !$*UTF8*$!
+{
+  objects = {
+    APP_DEBUG = {
+      isa = XCBuildConfiguration;
+      buildSettings = {
+        PRODUCT_BUNDLE_IDENTIFIER = com.generated.Test-Extension;
+        PRODUCT_NAME = "$(TARGET_NAME)";
+      };
+      name = Debug;
+    };
+    APP_RELEASE = {
+      isa = XCBuildConfiguration;
+      buildSettings = {
+        PRODUCT_BUNDLE_IDENTIFIER = "com.generated.Test-Extension";
+      };
+      name = Release;
+    };
+    EXTENSION_DEBUG = {
+      isa = XCBuildConfiguration;
+      buildSettings = {
+        PRODUCT_BUNDLE_IDENTIFIER = com.requested.extension.Extension;
+      };
+      name = Debug;
+    };
+    EXTENSION_RELEASE = {
+      isa = XCBuildConfiguration;
+      buildSettings = {
+        PRODUCT_BUNDLE_IDENTIFIER = "com.requested.extension.Extension";
+      };
+      name = Release;
+    };
+  };
+}
